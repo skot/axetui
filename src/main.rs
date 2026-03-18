@@ -262,30 +262,41 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
 }
 
 fn render_main(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
-    let columns = Layout::horizontal([
+    let rows = Layout::vertical([Constraint::Min(12), Constraint::Length(8)])
+        .spacing(1)
+        .split(area);
+
+    let top = Layout::horizontal([
         Constraint::Percentage(48),
         Constraint::Percentage(52),
     ])
     .spacing(1)
-    .split(area);
+    .split(rows[0]);
 
-    render_hashrate_column(frame, columns[0], app, theme);
-    render_metrics_columns(frame, columns[1], app, theme);
+    let bottom = Layout::horizontal([
+        Constraint::Percentage(48),
+        Constraint::Percentage(52),
+    ])
+    .spacing(1)
+    .split(rows[1]);
+
+    render_hashrate_chart(frame, top[0], app, theme);
+    render_meter_panels(frame, top[1], app, theme);
+    render_hashrate_stats(frame, bottom[0], app, theme);
+    render_status_pane(frame, bottom[1], app, theme);
 }
 
-fn render_hashrate_column(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
-    let sections = Layout::vertical([Constraint::Min(12), Constraint::Length(7)])
-        .spacing(1)
-        .split(area);
-
+fn render_hashrate_chart(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
     let spark = Sparkline::default()
         .block(panel("Hashrate", theme))
         .data(&app.hashrate_spark)
         .max(app.hashrate_scale_max())
         .style(Style::default().fg(theme.accent))
         .bar_set(symbols::bar::NINE_LEVELS);
-    frame.render_widget(spark, sections[0]);
+    frame.render_widget(spark, area);
+}
 
+fn render_hashrate_stats(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
     let stats = vec![
         Line::from(vec![
             "Current".fg(theme.muted),
@@ -308,22 +319,18 @@ fn render_hashrate_column(frame: &mut Frame, area: Rect, app: &App, theme: Theme
         Paragraph::new(stats)
             .block(panel("Hashrate Stats", theme))
             .wrap(Wrap { trim: true }),
-        sections[1],
+        area,
     );
 }
 
-fn render_metrics_columns(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
-    let sections = Layout::vertical([Constraint::Length(16), Constraint::Min(8)])
-        .spacing(1)
-        .split(area);
-
+fn render_meter_panels(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
     let top = Layout::horizontal([
         Constraint::Ratio(1, 3),
         Constraint::Ratio(1, 3),
         Constraint::Ratio(1, 3),
     ])
     .spacing(1)
-    .split(sections[0]);
+    .split(area);
 
     render_meter_group(
         frame,
@@ -407,6 +414,9 @@ fn render_metrics_columns(frame: &mut Frame, area: Rect, app: &App, theme: Theme
         ],
     );
 
+}
+
+fn render_status_pane(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
     let note = vec![
         Line::from(vec![
             "Pool".fg(theme.muted),
@@ -451,7 +461,7 @@ fn render_metrics_columns(frame: &mut Frame, area: Rect, app: &App, theme: Theme
         Paragraph::new(note)
             .block(panel("Bitaxe Status", theme))
             .wrap(Wrap { trim: true }),
-        sections[1],
+        area,
     );
 }
 
