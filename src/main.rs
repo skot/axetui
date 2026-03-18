@@ -262,7 +262,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
 }
 
 fn render_main(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
-    let rows = Layout::vertical([Constraint::Min(12), Constraint::Length(8)])
+    let rows = Layout::vertical([Constraint::Min(12), Constraint::Length(7)])
         .spacing(1)
         .split(area);
 
@@ -693,14 +693,18 @@ fn format_metric_value(value: &Value) -> String {
 }
 
 fn format_large_number(value: f64) -> String {
-    if value >= 1_000_000_000_000.0 {
+    if value >= 1_000_000_000_000_000_000.0 {
+        format!("{:.2}E", value / 1_000_000_000_000_000_000.0)
+    } else if value >= 1_000_000_000_000_000.0 {
+        format!("{:.2}P", value / 1_000_000_000_000_000.0)
+    } else if value >= 1_000_000_000_000.0 {
         format!("{:.2}T", value / 1_000_000_000_000.0)
     } else if value >= 1_000_000_000.0 {
-        format!("{:.2}B", value / 1_000_000_000.0)
+        format!("{:.2}G", value / 1_000_000_000.0)
     } else if value >= 1_000_000.0 {
         format!("{:.2}M", value / 1_000_000.0)
     } else if value >= 1_000.0 {
-        format!("{:.1}K", value / 1_000.0)
+        format!("{:.1}k", value / 1_000.0)
     } else {
         format!("{value:.0}")
     }
@@ -786,7 +790,7 @@ struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            bg: Color::Rgb(9, 12, 17),
+            bg: Color::Black,
             border: Color::Rgb(46, 66, 87),
             text: Color::Rgb(228, 233, 240),
             muted: Color::Rgb(129, 151, 171),
