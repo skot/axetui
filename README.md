@@ -2,6 +2,8 @@
 
 A simple Rust + Ratatui dashboard for a Bitaxe miner.
 
+![axetui screenshot](./screenshot.png)
+
 It connects to a live Bitaxe over HTTP and WebSocket, then displays:
 
 - hashrate history
