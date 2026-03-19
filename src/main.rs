@@ -16,7 +16,10 @@ use crossterm::{
 use ratatui::{
     prelude::*,
     symbols,
-    widgets::{Block, BorderType, Borders, Clear, Gauge, Paragraph, Sparkline, Wrap},
+    widgets::{
+        Axis, Block, BorderType, Borders, Chart, Clear, Dataset, GraphType, Paragraph,
+        Wrap,
+    },
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -287,13 +290,44 @@ fn render_main(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
 }
 
 fn render_hashrate_chart(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
-    let spark = Sparkline::default()
-        .block(panel("Hashrate", theme))
-        .data(&app.hashrate_spark)
-        .max(app.hashrate_scale_max())
+    let plot_width = area.width.saturating_sub(10).max(20) as usize;
+    let data = app.hashrate_chart_window(plot_width);
+    let x_bounds = app.hashrate_x_bounds(plot_width);
+    let y_bounds = app.hashrate_y_bounds(&data);
+    let y_max = y_bounds[1];
+    let mid = y_max / 2.0;
+
+    let dataset = Dataset::default()
+        .marker(symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
         .style(Style::default().fg(theme.accent))
-        .bar_set(symbols::bar::NINE_LEVELS);
-    frame.render_widget(spark, area);
+        .data(&data);
+
+    let chart = Chart::new(vec![dataset])
+        .block(panel("Hashrate", theme))
+        .x_axis(
+            Axis::default()
+                .bounds(x_bounds)
+                .style(Style::default().fg(theme.border)),
+        )
+        .y_axis(
+            Axis::default()
+                .bounds(y_bounds)
+                .labels(vec![
+                    Span::styled("0", Style::default().fg(theme.muted)),
+                    Span::styled(
+                        format!("{:.0}", mid),
+                        Style::default().fg(theme.muted),
+                    ),
+                    Span::styled(
+                        format!("{:.0}", y_max),
+                        Style::default().fg(theme.muted),
+                    ),
+                ])
+                .style(Style::default().fg(theme.border)),
+        );
+
+    frame.render_widget(chart, area);
 }
 
 fn render_hashrate_stats(frame: &mut Frame, area: Rect, app: &App, theme: Theme) {
@@ -578,12 +612,21 @@ fn render_meter_group(
             label_row[1],
         );
 
-        let gauge = Gauge::default()
-            .style(Style::default().bg(theme.bg))
-            .gauge_style(Style::default().fg(theme.warn).bg(Color::Rgb(78, 85, 96)))
-            .ratio(row.ratio.clamp(0.0, 1.0) as f64)
-            .label("");
-        frame.render_widget(gauge, chunks[base + 1]);
+        let bar_width = chunks[base + 1].width as usize;
+        let filled = ((bar_width as f32) * row.ratio.clamp(0.0, 1.0)).round() as usize;
+        let filled = filled.min(bar_width);
+        let empty = bar_width.saturating_sub(filled);
+        let bar = Line::from(vec![
+            "▄".repeat(filled)
+                .fg(Color::Rgb(148, 38, 38))
+                .bg(theme.bg)
+                .into(),
+            "▄".repeat(empty)
+                .fg(Color::Rgb(20, 22, 27))
+                .bg(theme.bg)
+                .into(),
+        ]);
+        frame.render_widget(Paragraph::new(bar), chunks[base + 1]);
     }
 }
 
@@ -921,10 +964,32 @@ impl App {
         }
     }
 
-    fn hashrate_scale_max(&self) -> u64 {
-        let peak = self.hashrate_spark.iter().copied().max().unwrap_or(1);
-        let padded = (peak as f64 * 1.8).ceil() as u64;
-        padded.max(1)
+    fn hashrate_chart_window(&self, width: usize) -> Vec<(f64, f64)> {
+        let len = self.hashrate_spark.len();
+        let start = len.saturating_sub(width);
+
+        self.hashrate_spark
+            .iter()
+            .enumerate()
+            .skip(start)
+            .map(|(index, value)| (index as f64, *value as f64))
+            .collect()
+    }
+
+    fn hashrate_x_bounds(&self, width: usize) -> [f64; 2] {
+        let len = self.hashrate_spark.len();
+        let start = len.saturating_sub(width) as f64;
+        let end = len.max(1) as f64;
+        [start, end]
+    }
+
+    fn hashrate_y_bounds(&self, data: &[(f64, f64)]) -> [f64; 2] {
+        let max_value = data
+            .iter()
+            .map(|(_, value)| *value)
+            .fold(0.0_f64, f64::max);
+        let padded_max = (max_value * 1.2).ceil().max(1.0);
+        [0.0, padded_max]
     }
 }
 
